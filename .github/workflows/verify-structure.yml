@@ -1,0 +1,42 @@
+name: Verify Project Structure
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  check-structure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Verify mandatory directories
+        run: |
+          if [ ! -d "Mô Hình Cơ Bản" ]; then
+            echo "Error: Directory 'Mô Hình Cơ Bản' is missing!"
+            exit 1
+          fi
+          if [ ! -d "Mô Hình Nâng Cao" ]; then
+            echo "Error: Directory 'Mô Hình Nâng Cao' is missing!"
+            exit 1
+          fi
+          echo "Structure check passed: Mandatory directories are present."
+
+      - name: Check for unauthorized root files
+        run: |
+          # Chặn các file mà hongquoc đã đẩy lên sai cấu trúc trước đó
+          UNAUTHORIZED_FILES=("main.py" "index.html" "requirements.txt" "best_model.pth" "best_model_v2.pth" "best_model_v3.pth" "best_model_v4.pth")
+          for file in "${UNAUTHORIZED_FILES[@]}"; do
+            if [ -f "$file" ]; then
+              echo "Error: Unauthorized file '$file' found at root level. Please move it to the correct subdirectory."
+              exit 1
+            fi
+          done
+          # Kiểm tra file .ipynb có tên lạ
+          if ls *.ipynb 1> /dev/null 2>&1; then
+             echo "Error: Jupyter Notebooks should not be at the root level!"
+             exit 1
+          fi
+          echo "No unauthorized root files found."
