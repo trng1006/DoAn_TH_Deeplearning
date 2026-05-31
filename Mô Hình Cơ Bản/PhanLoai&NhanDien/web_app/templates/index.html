@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fruit & Vegetable Classifier</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .loader {
+            border-top-color: #3498db;
+            -webkit-animation: spinner 1.5s linear infinite;
+            animation: spinner 1.5s linear infinite;
+        }
+        @-webkit-keyframes spinner {
+            0% { -webkit-transform: rotate(0deg); }
+            100% { -webkit-transform: rotate(360deg); }
+        }
+        @keyframes spinner {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans">
+    <div class="container mx-auto px-4 py-12 max-w-4xl">
+        <header class="text-center mb-12">
+            <h1 class="text-4xl font-extrabold text-green-700 mb-2">🍎 Fruits & Vegetables 🥦</h1>
+            <p class="text-gray-600 text-lg">AI-Powered Classification using ResNet50</p>
+        </header>
+
+        <div class="bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col md:flex-row">
+            <!-- Left Side: Upload -->
+            <div class="w-full md:w-1/2 p-8 border-b md:border-b-0 md:border-r border-gray-100">
+                <div class="flex flex-col items-center justify-center h-full">
+                    <label for="imageUpload" class="w-full flex flex-col items-center px-4 py-10 bg-white text-blue rounded-lg shadow-lg tracking-wide border border-blue cursor-pointer hover:bg-blue-500 hover:text-white transition-all duration-300 ease-in-out mb-4 group border-dashed border-2 border-green-500">
+                        <svg class="w-12 h-12 text-green-500 group-hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                        <span class="mt-2 text-base leading-normal text-green-600 group-hover:text-white font-semibold">Select an image</span>
+                        <input type='file' class="hidden" id="imageUpload" accept=".png, .jpg, .jpeg" />
+                    </label>
+                    <button id="btn-predict" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        Classify Image
+                    </button>
+                </div>
+            </div>
+
+            <!-- Right Side: Preview & Results -->
+            <div class="w-full md:w-1/2 p-8 bg-gray-50">
+                <div id="image-preview-container" class="hidden mb-6 text-center">
+                    <img id="image-preview" src="#" alt="Preview" class="mx-auto rounded-lg shadow-md max-h-64 object-contain" />
+                </div>
+                
+                <div id="loading" class="hidden flex flex-col items-center justify-center py-8">
+                    <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
+                    <p class="text-gray-500 font-medium">Analyzing image...</p>
+                </div>
+
+                <div id="result-container" class="hidden">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">Classification Results</h3>
+                    <div id="prediction-list" class="space-y-4">
+                        <!-- Predictions will be injected here -->
+                    </div>
+                </div>
+
+                <div id="placeholder" class="h-full flex items-center justify-center text-gray-400 italic">
+                    <p>Upload an image to see results</p>
+                </div>
+            </div>
+        </div>
+
+        <footer class="mt-12 text-center text-gray-500 text-sm">
+            Built with Flask, TensorFlow, and Tailwind CSS
+        </footer>
+    </div>
+
+    <script>
+        const imageUpload = document.getElementById('imageUpload');
+        const imagePreviewContainer = document.getElementById('image-preview-container');
+        const btnPredict = document.getElementById('btn-predict');
+        const resultContainer = document.getElementById('result-container');
+        const predictionList = document.getElementById('prediction-list');
+        const loading = document.getElementById('loading');
+        const placeholder = document.getElementById('placeholder');
+        const previewImg = document.getElementById('image-preview');
+
+        imageUpload.addEventListener('change', function() {
+            const file = this.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    previewImg.src = e.target.result;
+                    imagePreviewContainer.classList.remove('hidden');
+                    placeholder.classList.add('hidden');
+                    btnPredict.disabled = false;
+                    resultContainer.classList.add('hidden');
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+
+        btnPredict.addEventListener('click', async function() {
+            const file = imageUpload.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // UI Reset
+            btnPredict.disabled = true;
+            loading.classList.remove('hidden');
+            resultContainer.classList.add('hidden');
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error('Server returned ' + response.status);
+                }
+
+                const data = await response.json();
+
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                } else {
+                    displayResults(data.predictions);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred during classification: ' + error.message);
+            } finally {
+                loading.classList.add('hidden');
+                btnPredict.disabled = false;
+            }
+        });
+
+        function displayResults(predictions) {
+            predictionList.innerHTML = '';
+            
+            predictions.forEach((pred, index) => {
+                const percentage = pred.confidence.toFixed(2);
+                const colorClass = index === 0 ? 'bg-green-500' : (index === 1 ? 'bg-green-300' : 'bg-gray-300');
+                
+                const itemHtml = `
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <span class="text-base font-semibold text-gray-700 capitalize">${pred.label}</span>
+                            <span class="text-sm font-medium text-gray-600">${percentage}%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2.5">
+                            <div class="${colorClass} h-2.5 rounded-full transition-all duration-1000" style="width: ${percentage}%"></div>
+                        </div>
+                    </div>
+                `;
+                predictionList.insertAdjacentHTML('beforeend', itemHtml);
+            });
+
+            resultContainer.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
