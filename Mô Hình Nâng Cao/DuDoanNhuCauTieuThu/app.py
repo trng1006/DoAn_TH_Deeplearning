@@ -151,15 +151,35 @@ def update_system(contents, buffer, threshold, filename):
         final_pred = 0
         if model is not None:
             if len(df) >= look_back:
-                data_values = df[[val_col]].values
-                # Ensure data is numeric
-                data_values = pd.to_numeric(df[val_col], errors='coerce').dropna().values.reshape(-1, 1)
+                # Feature Engineering to match training
+                df['Hour'] = df[date_col].dt.hour
+                df['Month'] = df[date_col].dt.month
+                df['hour_sin'] = np.sin(2 * np.pi * df['Hour'] / 23)
+                df['hour_cos'] = np.cos(2 * np.pi * df['Hour'] / 23)
+                df['month_sin'] = np.sin(2 * np.pi * df['Month'] / 12)
+                df['month_cos'] = np.cos(2 * np.pi * df['Month'] / 12)
+                
+                features_list = [val_col, 'hour_sin', 'hour_cos', 'month_sin', 'month_cos']
+                
+                # Convert to numeric and drop NaNs
+                for col in features_list:
+                    df[col] = pd.to_numeric(df[col], errors='coerce')
+                
+                data_values = df[features_list].dropna().values
                 
                 if len(data_values) >= look_back:
+                    # Scaling - Note: Ideally, use a pre-fitted scaler from training
                     scaled_data = scaler.fit_transform(data_values)
-                    last_window = scaled_data[-look_back:].reshape(1, look_back, 1)
+                    
+                    # Prepare last window: (1, look_back, 5)
+                    last_window = scaled_data[-look_back:].reshape(1, look_back, 5)
                     pred_scaled = model.predict(last_window, verbose=0)
-                    base_pred = scaler.inverse_transform(pred_scaled)[0,0]
+                    
+                    # Inverse transform
+                    # To inverse transform, we need a dummy array with 5 columns
+                    dummy = np.zeros((1, 5))
+                    dummy[0, 0] = pred_scaled[0, 0]
+                    base_pred = scaler.inverse_transform(dummy)[0, 0]
                     
                     # Apply buffer factor
                     buffer_val = buffer if buffer is not None else 0
