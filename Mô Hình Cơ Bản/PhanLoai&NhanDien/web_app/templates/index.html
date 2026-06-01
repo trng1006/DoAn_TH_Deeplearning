@@ -32,11 +32,13 @@
             <!-- Left Side: Upload -->
             <div class="w-full md:w-1/2 p-8 border-b md:border-b-0 md:border-r border-gray-100">
                 <div class="flex flex-col items-center justify-center h-full">
-                    <label for="imageUpload" class="w-full flex flex-col items-center px-4 py-10 bg-white text-blue rounded-lg shadow-lg tracking-wide border border-blue cursor-pointer hover:bg-blue-500 hover:text-white transition-all duration-300 ease-in-out mb-4 group border-dashed border-2 border-green-500">
-                        <svg class="w-12 h-12 text-green-500 group-hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <label for="imageUpload" id="drop-area" class="w-full flex flex-col items-center justify-center px-4 py-20 bg-white text-blue rounded-lg shadow-lg tracking-wide border border-blue cursor-pointer hover:bg-blue-500 hover:text-white transition-all duration-300 ease-in-out mb-4 group border-dashed border-2 border-green-500 min-h-[300px]">
+                        <svg class="w-20 h-20 text-green-500 group-hover:text-white mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                         </svg>
-                        <span class="mt-2 text-base leading-normal text-green-600 group-hover:text-white font-semibold">Select an image</span>
+                        <span class="mt-2 text-base leading-normal text-green-600 group-hover:text-white font-semibold text-center">
+                            Select or Drag & Drop image
+                        </span>
                         <input type='file' class="hidden" id="imageUpload" accept=".png, .jpg, .jpeg" />
                     </label>
                     <button id="btn-predict" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed" disabled>
@@ -76,6 +78,7 @@
 
     <script>
         const imageUpload = document.getElementById('imageUpload');
+        const dropArea = document.getElementById('drop-area');
         const imagePreviewContainer = document.getElementById('image-preview-container');
         const btnPredict = document.getElementById('btn-predict');
         const resultContainer = document.getElementById('result-container');
@@ -84,20 +87,60 @@
         const placeholder = document.getElementById('placeholder');
         const previewImg = document.getElementById('image-preview');
 
+        // Drag and Drop Events
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropArea.addEventListener(eventName, () => {
+                dropArea.classList.add('bg-green-500', 'text-white');
+                dropArea.querySelector('svg').classList.remove('text-green-500');
+                dropArea.querySelector('svg').classList.add('text-white');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, () => {
+                dropArea.classList.remove('bg-green-500', 'text-white');
+                dropArea.querySelector('svg').classList.add('text-green-500');
+                dropArea.querySelector('svg').classList.remove('text-white');
+            }, false);
+        });
+
+        dropArea.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length > 0) {
+                imageUpload.files = files;
+                handleFiles(files[0]);
+            }
+        }
+
         imageUpload.addEventListener('change', function() {
-            const file = this.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    previewImg.src = e.target.result;
-                    imagePreviewContainer.classList.remove('hidden');
-                    placeholder.classList.add('hidden');
-                    btnPredict.disabled = false;
-                    resultContainer.classList.add('hidden');
-                }
-                reader.readAsDataURL(file);
+            if (this.files[0]) {
+                handleFiles(this.files[0]);
             }
         });
+
+        function handleFiles(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                previewImg.src = e.target.result;
+                imagePreviewContainer.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+                btnPredict.disabled = false;
+                resultContainer.classList.add('hidden');
+            }
+            reader.readAsDataURL(file);
+        }
 
         btnPredict.addEventListener('click', async function() {
             const file = imageUpload.files[0];

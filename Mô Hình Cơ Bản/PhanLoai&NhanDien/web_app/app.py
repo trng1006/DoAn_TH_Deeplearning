@@ -1,10 +1,18 @@
 import os
 import numpy as np
+import keras
 from flask import Flask, request, render_template, jsonify
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing import image
 from tensorflow.keras.applications.resnet50 import preprocess_input
 from werkzeug.utils import secure_filename
+
+# Fix Keras 3 deserialization error: Unrecognized keyword arguments passed to Dense: {'quantization_config': None}
+original_dense_init = keras.layers.Dense.__init__
+def patched_dense_init(self, *args, **kwargs):
+    kwargs.pop('quantization_config', None)
+    return original_dense_init(self, *args, **kwargs)
+keras.layers.Dense.__init__ = patched_dense_init
 
 app = Flask(__name__)
 
@@ -134,6 +142,6 @@ def upload():
 if __name__ == "__main__":
     app.run(
         host="0.0.0.0",
-        port=5000,
+        port=5001,
         debug=True
     )
